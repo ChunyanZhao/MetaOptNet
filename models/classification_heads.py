@@ -7,6 +7,46 @@ import torch.nn as nn
 from qpth.qp import QPFunction
 
 
+def RBF(A,B):
+    """
+    Constructs a ploynomial kernel matrix between A and B.
+    We assume that each row in A and B represents a d-dimensional feature vector.
+    
+    Parameters:
+      A:  a (n_batch, n, d) Tensor.
+      B:  a (n_batch, m, d) Tensor.
+    Returns: a (n_batch, n, m) Tensor.
+    """
+    assert(A.dim() == 3)
+    assert(B.dim() == 3)
+    assert(A.size(0) == B.size(0) and A.size(2) == B.size(2))
+    print(A.shape)
+    print(B.shape)
+    delta = A - B
+    K = torch.bmm(delta, delta.transpose(1,2))
+    gamm = 2**(-2)
+    K = torch.exp(K*(-1*gamm))
+
+    return K
+
+def ployKernal(A, B):
+    """
+    Constructs a ploynomial kernel matrix between A and B.
+    We assume that each row in A and B represents a d-dimensional feature vector.
+    
+    Parameters:
+      A:  a (n_batch, n, d) Tensor.
+      B:  a (n_batch, m, d) Tensor.
+    Returns: a (n_batch, n, m) Tensor.
+    """
+    assert(A.dim() == 3)
+    assert(B.dim() == 3)
+    assert(A.size(0) == B.size(0) and A.size(2) == B.size(2))
+
+    p = 4
+    q = 3
+    return torch.pow((torch.bmm(A, B.transpose(1,2))+p),q)
+
 def computeGramMatrix(A, B):
     """
     Constructs a linear kernel matrix between A and B.
@@ -177,14 +217,14 @@ def R2D2Head(query, support, support_labels, n_way, n_shot, l2_regularizer_lambd
     
     # Compute the dual form solution of the ridge regression.
     # W = X^T(X X^T - lambda * I)^(-1) Y
-    ridge_sol = computeGramMatrix(support, support) + l2_regularizer_lambda * id_matrix
+    ridge_sol = ployKernal(support, support) + l2_regularizer_lambda * id_matrix
     ridge_sol = binv(ridge_sol)
-    ridge_sol = torch.bmm(support.transpose(1,2), ridge_sol)
+    #ridge_sol = torch.bmm(support.transpose(1,2), ridge_sol)
     ridge_sol = torch.bmm(ridge_sol, support_labels_one_hot)
     
     # Compute the classification score.
     # score = W X
-    logits = torch.bmm(query, ridge_sol)
+    logits = torch.bmm(ployKernal(query, support),ridge_sol)
 
     return logits
 
